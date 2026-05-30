@@ -310,7 +310,7 @@ if __name__ == "__main__":
     cfg = HAPFLConfig()
     # Resolve archive path relative to the project root (parent of this script's directory)
     _project_root = Path(__file__).resolve().parents[1]
-    cfg.data_root = str(_project_root.parent / "archive")
+    cfg.data_root = "/kaggle/input/skin-cancer-mnist-ham10000"
     partitioner = DatasetPartitioner(cfg)
     partitioner.partition()
     verify_partitions(cfg)

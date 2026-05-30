@@ -1,6 +1,6 @@
-# HPAFL — Hybrid Privacy-Aware Federated Learning Framework
+# HPAFL - Hybrid Privacy-Aware Federated Learning Framework
 
-A production-grade federated learning system for skin lesion classification on the HAM10000 dataset. HPAFL simultaneously provides differential privacy (DP-SGD), secure model aggregation, adaptive weighted aggregation, and feature-shift robustness via FedBN — demonstrating measurable improvements over the standard FedAvg baseline while preserving patient data privacy across multiple hospital nodes.
+A production-grade federated learning system for skin lesion classification on the HAM10000 dataset. HPAFL simultaneously provides differential privacy (DP-SGD), secure model aggregation, adaptive weighted aggregation, and feature-shift robustness via FedBN - demonstrating measurable improvements over the standard FedAvg baseline while preserving patient data privacy across multiple hospital nodes.
 
 ---
 
