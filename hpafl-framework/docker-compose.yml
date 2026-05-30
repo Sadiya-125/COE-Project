@@ -1,0 +1,144 @@
+version: "3.9"
+
+networks:
+  fl-network:
+    driver: bridge
+
+volumes:
+  checkpoints:
+
+services:
+
+  flower-server:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.server
+    container_name: hpafl-server
+    ports:
+      - "8080:8080"
+    volumes:
+      - checkpoints:/app/checkpoints
+      - ./results:/app/results
+      - ./archive:/app/data/ham10000
+    networks:
+      - fl-network
+    environment:
+      - PYTHONPATH=/app
+    restart: unless-stopped
+
+  hospital-a:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.client
+    container_name: hpafl-hospital-a
+    depends_on:
+      - flower-server
+    volumes:
+      - checkpoints:/app/checkpoints
+      - ./results:/app/results
+      - ./archive:/app/data/ham10000
+    networks:
+      - fl-network
+    environment:
+      - PYTHONPATH=/app
+      - HOSPITAL_ID=A
+      - SERVER_ADDRESS=flower-server:8080
+    command: >
+      python -c "
+      import sys; sys.path.insert(0,'.');
+      from config import HAPFLConfig;
+      from clients.client import start_client;
+      cfg = HAPFLConfig();
+      cfg.server_address = 'flower-server:8080';
+      start_client('A', cfg.server_address, cfg)
+      "
+
+  hospital-b:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.client
+    container_name: hpafl-hospital-b
+    depends_on:
+      - flower-server
+    volumes:
+      - checkpoints:/app/checkpoints
+      - ./results:/app/results
+      - ./archive:/app/data/ham10000
+    networks:
+      - fl-network
+    environment:
+      - PYTHONPATH=/app
+      - HOSPITAL_ID=B
+      - SERVER_ADDRESS=flower-server:8080
+    command: >
+      python -c "
+      import sys; sys.path.insert(0,'.');
+      from config import HAPFLConfig;
+      from clients.client import start_client;
+      cfg = HAPFLConfig();
+      cfg.server_address = 'flower-server:8080';
+      start_client('B', cfg.server_address, cfg)
+      "
+
+  hospital-c:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.client
+    container_name: hpafl-hospital-c
+    depends_on:
+      - flower-server
+    volumes:
+      - checkpoints:/app/checkpoints
+      - ./results:/app/results
+      - ./archive:/app/data/ham10000
+    networks:
+      - fl-network
+    environment:
+      - PYTHONPATH=/app
+      - HOSPITAL_ID=C
+      - SERVER_ADDRESS=flower-server:8080
+    command: >
+      python -c "
+      import sys; sys.path.insert(0,'.');
+      from config import HAPFLConfig;
+      from clients.client import start_client;
+      cfg = HAPFLConfig();
+      cfg.server_address = 'flower-server:8080';
+      start_client('C', cfg.server_address, cfg)
+      "
+
+  api-server:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.api
+    container_name: hpafl-api
+    ports:
+      - "8000:8000"
+    depends_on:
+      - flower-server
+    volumes:
+      - checkpoints:/app/checkpoints
+      - ./results:/app/results
+    networks:
+      - fl-network
+    environment:
+      - PYTHONPATH=/app
+    restart: unless-stopped
+
+  streamlit-dashboard:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.api
+    container_name: hpafl-dashboard
+    ports:
+      - "8501:8501"
+    depends_on:
+      - api-server
+    volumes:
+      - ./results:/app/results
+    networks:
+      - fl-network
+    environment:
+      - PYTHONPATH=/app
+    command: ["streamlit", "run", "deployment/dashboard.py", "--server.port", "8501", "--server.address", "0.0.0.0"]
+    restart: unless-stopped
