@@ -186,6 +186,5 @@ CLINICAL_NOTES = {
 HOSPITAL_IDS = ["A", "B", "C"]
 
 # Kaggle dataset slug — used by scripts to build the input path automatically
-KAGGLE_DATASET_SLUG = "skin-cancer-mnist-ham10000"
-KAGGLE_DATA_ROOT = f"/kaggle/input/{KAGGLE_DATASET_SLUG}"
+KAGGLE_DATA_ROOT = "/kaggle/input/datasets/kmader/skin-cancer-mnist-ham10000"
 KAGGLE_OUTPUT_ROOT = "/kaggle/working"
