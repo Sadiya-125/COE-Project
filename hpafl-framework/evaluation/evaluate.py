@@ -251,16 +251,18 @@ def plot_adaptive_weights(results_dir: str) -> None:
 
 
 def plot_confusion_matrix(
-    cm: np.ndarray, class_names: List[str], title: str
+    cm: np.ndarray, class_names: List[str], title: str,
+    results_dir: str = "./results",
 ) -> None:
     """Plotly heatmap confusion matrix with class names.
 
-    Saves to results/plots/confusion_matrix.html.
+    Saves to <results_dir>/plots/confusion_matrix.html.
 
     Args:
         cm: Confusion matrix array of shape (n_classes, n_classes).
         class_names: List of class name strings.
         title: Chart title.
+        results_dir: Output directory for plots.
     """
     cm_arr = np.array(cm)
     # Normalise to percentages row-wise
@@ -287,7 +289,7 @@ def plot_confusion_matrix(
         template="plotly_white",
     )
 
-    out_path = Path("./results/plots/confusion_matrix.html")
+    out_path = Path(results_dir) / "plots" / "confusion_matrix.html"
     out_path.parent.mkdir(parents=True, exist_ok=True)
     fig.write_html(str(out_path))
     logger.info("Confusion matrix saved → %s", out_path)

@@ -49,7 +49,8 @@ class DatasetPartitioner:
         self.config = config
         self.seed = seed
         self.rng = np.random.default_rng(seed)
-        self.partition_dir = Path(config.data_root) / "partitions"
+        # Partitions are written to output_root (writable), not data_root (read-only on Kaggle)
+        self.partition_dir = config.partition_dir
         self.partition_dir.mkdir(parents=True, exist_ok=True)
 
     def load_metadata(self) -> pd.DataFrame:
@@ -274,7 +275,7 @@ def verify_partitions(config: HAPFLConfig) -> bool:
     Returns:
         True if partitions are valid (no overlap), False otherwise.
     """
-    partition_dir = Path(config.data_root) / "partitions"
+    partition_dir = config.partition_dir
     all_indices: Dict[str, set] = {}
 
     for hosp_id in HOSPITAL_IDS[: config.num_hospitals]:
@@ -306,11 +307,16 @@ def verify_partitions(config: HAPFLConfig) -> bool:
 
 
 if __name__ == "__main__":
+    from config import is_kaggle, KAGGLE_DATA_ROOT, KAGGLE_OUTPUT_ROOT
     logging.basicConfig(level=logging.INFO, format="%(levelname)s | %(message)s")
     cfg = HAPFLConfig()
-    # Resolve archive path relative to the project root (parent of this script's directory)
-    _project_root = Path(__file__).resolve().parents[1]
-    cfg.data_root = "/kaggle/input/skin-cancer-mnist-ham10000"
+    if is_kaggle():
+        cfg.data_root = KAGGLE_DATA_ROOT
+        cfg.output_root = KAGGLE_OUTPUT_ROOT
+    else:
+        _project_root = Path(__file__).resolve().parents[1]
+        cfg.data_root = str(_project_root.parent / "archive")
+        cfg.output_root = str(_project_root)
     partitioner = DatasetPartitioner(cfg)
     partitioner.partition()
     verify_partitions(cfg)

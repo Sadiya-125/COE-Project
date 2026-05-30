@@ -212,8 +212,8 @@ def create_dataloaders(
     Raises:
         FileNotFoundError: If the hospital partition file does not exist.
     """
-    partition_dir = Path(config.data_root) / "partitions"
-    partition_path = partition_dir / f"hospital_{hospital_id}_indices.json"
+    # Partitions live in output_root (writable), not data_root (read-only on Kaggle)
+    partition_path = config.partition_dir / f"hospital_{hospital_id}_indices.json"
 
     if not partition_path.exists():
         raise FileNotFoundError(

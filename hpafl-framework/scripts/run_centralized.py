@@ -18,7 +18,7 @@ from torch.optim import Adam
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
-from config import CLASS_NAMES, HAPFLConfig
+from config import CLASS_NAMES, HAPFLConfig, KAGGLE_DATA_ROOT, KAGGLE_OUTPUT_ROOT, is_kaggle
 from data.dataset import HAM10000Dataset
 from evaluation.evaluate import evaluate_model, plot_confusion_matrix
 from models.efficientnet_model import get_model
@@ -129,5 +129,11 @@ def run_centralized(config: HAPFLConfig) -> None:
 
 if __name__ == "__main__":
     cfg = HAPFLConfig()
-    cfg.data_root = str(Path(__file__).resolve().parents[2] / "archive")
+    if is_kaggle():
+        cfg.data_root = KAGGLE_DATA_ROOT
+        cfg.output_root = KAGGLE_OUTPUT_ROOT
+    else:
+        _root = Path(__file__).resolve().parents[1]
+        cfg.data_root = str(_root.parent / "archive")
+        cfg.output_root = str(_root)
     run_centralized(cfg)

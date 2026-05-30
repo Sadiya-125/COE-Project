@@ -3,15 +3,32 @@
 All hyperparameters are defined here. No magic numbers elsewhere in the codebase.
 """
 
+import os
 from dataclasses import dataclass, field
+from pathlib import Path
+
+
+def is_kaggle() -> bool:
+    """Return True when running inside a Kaggle notebook/script environment."""
+    return os.path.exists("/kaggle/input")
 
 
 @dataclass
 class HAPFLConfig:
     """Master configuration for the Hybrid Privacy-Aware Federated Learning framework.
 
+    On Kaggle set only two fields and everything else resolves automatically::
+
+        cfg = HAPFLConfig()
+        cfg.data_root   = "/kaggle/input/skin-cancer-mnist-ham10000"
+        cfg.output_root = "/kaggle/working"
+
     Args:
-        data_root: Path to HAM10000 dataset directory.
+        data_root: Read-only path to HAM10000 images and metadata CSV.
+            Kaggle: /kaggle/input/skin-cancer-mnist-ham10000
+            Local:  ../archive  (relative to hpafl-framework/)
+        output_root: Writable root for all generated files (partitions,
+            checkpoints, results).  Kaggle: /kaggle/working  Local: .
         num_classes: Number of skin lesion classes.
         image_size: Input image size (square).
         num_hospitals: Number of federated hospital clients.
@@ -22,8 +39,8 @@ class HAPFLConfig:
         dropout_rate: Dropout probability in classifier head.
         hidden_dim: Hidden dimension of classifier head.
         local_epochs: Local training epochs per FL round.
-        batch_size: Mini-batch size for local training (64 for Kaggle T4).
-        num_workers: DataLoader worker processes (4 for Kaggle T4).
+        batch_size: Mini-batch size (64 on T4 16 GB; try 128 if headroom allows).
+        num_workers: DataLoader workers (4 on Kaggle T4).
         learning_rate: Initial learning rate.
         weight_decay: L2 regularisation coefficient.
         focal_gamma: Focusing parameter for FocalLoss (0 = CrossEntropy).
@@ -42,62 +59,79 @@ class HAPFLConfig:
         ema_decay: Exponential moving average decay for historical accuracy.
         api_host: FastAPI server host.
         api_port: FastAPI server port.
-        checkpoint_dir: Directory for saving model checkpoints.
-        results_dir: Directory for saving training results and plots.
     """
 
-    # Data
+    # ── Paths ────────────────────────────────────────────────────────────────
+    # Read-only dataset location
     data_root: str = "./data/ham10000"
+    # Writable output root — partitions, checkpoints, results all go here
+    output_root: str = "."
+
+    # ── Data ─────────────────────────────────────────────────────────────────
     num_classes: int = 7
     image_size: int = 224
     num_hospitals: int = 3
     hospital_splits: tuple = (0.35, 0.35, 0.30)
     dirichlet_alpha: float = 0.5
 
-    # Model
+    # ── Model ─────────────────────────────────────────────────────────────────
     model_name: str = "efficientnet_b0"
     pretrained: bool = True
     dropout_rate: float = 0.3
     hidden_dim: int = 512
 
-    # Training
+    # ── Training ──────────────────────────────────────────────────────────────
     local_epochs: int = 5
-    batch_size: int = 64        # 64 is comfortable on T4 16 GB; raise to 128 if headroom allows
+    batch_size: int = 64        # comfortable on T4 16 GB; try 128 if headroom allows
     learning_rate: float = 1e-4
     weight_decay: float = 1e-5
     focal_gamma: float = 2.0
-    num_workers: int = 4        # Kaggle T4 has 4 CPU cores available for data loading
+    num_workers: int = 4        # Kaggle T4 ships with 4 CPU cores
 
-    # Federated Learning
+    # ── Federated Learning ────────────────────────────────────────────────────
     num_rounds: int = 20
     fraction_fit: float = 1.0
     fraction_evaluate: float = 1.0
     server_address: str = "0.0.0.0:8080"
 
-    # Differential Privacy
+    # ── Differential Privacy ──────────────────────────────────────────────────
     noise_multiplier: float = 1.1
     max_grad_norm: float = 1.0
     target_epsilon: float = 8.0
     target_delta: float = 1e-5
 
-    # Adaptive Aggregation weights (must sum to 1.0)
+    # ── Adaptive Aggregation weights (must sum to 1.0) ────────────────────────
     alpha_accuracy: float = 0.40
     alpha_reliability: float = 0.30
     alpha_data_quality: float = 0.20
     alpha_historical: float = 0.10
     ema_decay: float = 0.30
 
-    # Deployment
+    # ── Deployment ────────────────────────────────────────────────────────────
     api_host: str = "0.0.0.0"
     api_port: int = 8000
-    checkpoint_dir: str = "./checkpoints"
-    results_dir: str = "./results"
+
+    # ── Derived paths (computed in __post_init__) ─────────────────────────────
+    checkpoint_dir: str = ""
+    results_dir: str = ""
+
+    def __post_init__(self) -> None:
+        root = Path(self.output_root)
+        if not self.checkpoint_dir:
+            self.checkpoint_dir = str(root / "checkpoints")
+        if not self.results_dir:
+            self.results_dir = str(root / "results")
+
+    @property
+    def partition_dir(self) -> Path:
+        """Writable directory for hospital partition JSON files."""
+        return Path(self.output_root) / "partitions"
 
 
-# Canonical 7-class abbreviation list — index == class integer label
+# ── Class metadata ────────────────────────────────────────────────────────────
+
 CLASS_NAMES = ["MEL", "NV", "BCC", "AK", "BKL", "DF", "VASC"]
 
-# Mapping from CSV dx column values to CLASS_NAMES
 DX_TO_CLASS = {
     "mel": "MEL",
     "nv": "NV",
@@ -149,5 +183,9 @@ CLINICAL_NOTES = {
     ),
 }
 
-# Hospital IDs
 HOSPITAL_IDS = ["A", "B", "C"]
+
+# Kaggle dataset slug — used by scripts to build the input path automatically
+KAGGLE_DATASET_SLUG = "skin-cancer-mnist-ham10000"
+KAGGLE_DATA_ROOT = f"/kaggle/input/{KAGGLE_DATASET_SLUG}"
+KAGGLE_OUTPUT_ROOT = "/kaggle/working"

@@ -27,7 +27,10 @@ warnings.filterwarnings("ignore", category=RuntimeWarning, module="opacus")
 import numpy as np
 import torch
 
-from config import CLASS_NAMES, HOSPITAL_IDS, HAPFLConfig
+from config import (
+    CLASS_NAMES, HOSPITAL_IDS, HAPFLConfig,
+    KAGGLE_DATA_ROOT, KAGGLE_OUTPUT_ROOT, is_kaggle,
+)
 from data.dataset import create_dataloaders
 from models.efficientnet_model import get_bn_layer_names, get_model
 from privacy.dp_trainer import PrivacyBudgetLogger
@@ -269,5 +272,11 @@ def run_hpafl(config: HAPFLConfig) -> None:
 
 if __name__ == "__main__":
     cfg = HAPFLConfig()
-    cfg.data_root = str(Path(__file__).resolve().parents[2] / "archive")
+    if is_kaggle():
+        cfg.data_root = KAGGLE_DATA_ROOT
+        cfg.output_root = KAGGLE_OUTPUT_ROOT
+    else:
+        _root = Path(__file__).resolve().parents[1]
+        cfg.data_root = str(_root.parent / "archive")
+        cfg.output_root = str(_root)
     run_hpafl(cfg)

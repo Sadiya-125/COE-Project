@@ -41,6 +41,34 @@ A production-grade federated learning system for skin lesion classification on t
 
 ## Quick Start
 
+### Kaggle (GPU T4 — recommended)
+
+1. Create a new notebook at [kaggle.com](https://www.kaggle.com)
+2. Add the **HAM10000** dataset: *Add Data → Search "skin-cancer-mnist-ham10000"*
+3. Enable **GPU T4 x2** under *Settings → Accelerator*
+4. In the notebook:
+
+```python
+# Clone the repo
+!git clone https://github.com/Sadiya-125/COE-Project.git /kaggle/COE-Project
+%cd /kaggle/COE-Project/hpafl-framework
+
+# Install dependencies
+!pip install -q -r requirements.txt
+
+# Partition data  (auto-detects /kaggle/input and writes to /kaggle/working)
+!python data/prepare_data.py
+
+# Run full HPAFL (DP + SecureAgg + FedBN + Adaptive)
+!python scripts/run_hpafl.py
+```
+
+All generated files (partitions, checkpoints, results) go to `/kaggle/working/` automatically.
+
+---
+
+### Local
+
 **Step 1: Install dependencies**
 
 ```bash
@@ -50,7 +78,7 @@ pip install -r requirements.txt
 **Step 2: Prepare data partitions**
 
 ```bash
-# Point to your HAM10000 archive directory
+cd hpafl-framework
 python data/prepare_data.py
 ```
 
@@ -73,6 +101,17 @@ uvicorn deployment.api:app --host 0.0.0.0 --port 8000
 # Dashboard (separate terminal)
 streamlit run deployment/dashboard.py
 ```
+
+---
+
+## Path Layout
+
+| Environment | Dataset (read-only) | Generated files (writable) |
+|-------------|--------------------|-----------------------------|
+| **Kaggle** | `/kaggle/input/skin-cancer-mnist-ham10000` | `/kaggle/working/` |
+| **Local** | `../archive/` | `hpafl-framework/` |
+
+`config.data_root` and `config.output_root` are set automatically by `is_kaggle()`. Override manually if needed.
 
 ---
 

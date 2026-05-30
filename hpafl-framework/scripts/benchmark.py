@@ -10,9 +10,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-
-from config import HAPFLConfig
+from config import HAPFLConfig, KAGGLE_DATA_ROOT, KAGGLE_OUTPUT_ROOT, is_kaggle
 from evaluation.evaluate import generate_full_report
 from scripts.run_centralized import run_centralized
 from scripts.run_fedavg import run_fedavg
@@ -27,7 +25,13 @@ logger = logging.getLogger(__name__)
 def main() -> None:
     """Run the complete HPAFL benchmark suite."""
     cfg = HAPFLConfig()
-    cfg.data_root = str(Path(__file__).resolve().parents[2] / "archive")
+    if is_kaggle():
+        cfg.data_root = KAGGLE_DATA_ROOT
+        cfg.output_root = KAGGLE_OUTPUT_ROOT
+    else:
+        _root = Path(__file__).resolve().parents[1]
+        cfg.data_root = str(_root.parent / "archive")
+        cfg.output_root = str(_root)
 
     print("\n" + "=" * 60)
     print("HPAFL BENCHMARK SUITE")
@@ -47,7 +51,7 @@ def main() -> None:
             fn(cfg)
             elapsed = time.time() - t0
             timings[name] = elapsed
-            print(f"    ✓ Completed in {elapsed:.1f}s")
+            print(f"    Completed in {elapsed:.1f}s")
         except Exception as exc:
             logger.error("Stage '%s' failed: %s", name, exc)
             timings[name] = -1
@@ -59,7 +63,7 @@ def main() -> None:
         status = f"{t:.1f}s" if t >= 0 else "FAILED"
         print(f"  {name:<30} {status}")
 
-    print("\n>>> Generating full evaluation report…")
+    print("\n>>> Generating full evaluation report...")
     generate_full_report(cfg.results_dir)
 
 
