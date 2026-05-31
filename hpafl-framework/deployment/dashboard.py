@@ -8,8 +8,12 @@ Three pages:
 
 import io
 import json
+import sys
 from pathlib import Path
 from typing import Dict, List, Optional
+
+# Add project root to sys.path so config and other modules are importable
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 import pandas as pd
 import plotly.express as px
@@ -31,7 +35,13 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
+from config import is_kaggle, KAGGLE_OUTPUT_ROOT
+
 cfg = HAPFLConfig()
+if is_kaggle():
+    cfg.output_root = KAGGLE_OUTPUT_ROOT
+else:
+    cfg.output_root = str(Path(__file__).resolve().parents[1])
 API_BASE = f"http://localhost:{cfg.api_port}"
 RESULTS_DIR = Path(cfg.results_dir)
 
