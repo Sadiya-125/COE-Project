@@ -82,8 +82,11 @@ def _load_results(fname: str) -> Optional[Dict]:
 
 
 def _chart(fig):
-    """Render a Plotly figure without deprecated use_container_width."""
-    st.plotly_chart(fig, use_container_width=True)
+    """Render a Plotly figure full-width (Streamlit 1.33+ API)."""
+    try:
+        st.plotly_chart(fig, width="stretch")   # Streamlit >= 1.33 deprecates use_container_width
+    except TypeError:
+        st.plotly_chart(fig, use_container_width=True)  # fallback for older versions
 
 
 # ---------------------------------------------------------------------------
@@ -182,7 +185,7 @@ elif page == "Model Evaluation":
             df_cmp.style.highlight_max(
                 subset=["Accuracy", "F1-Macro", "ROC-AUC"], color="lightgreen",
             ),
-            use_container_width=True,
+            use_container_width=True,  # noqa: deprecated in 1.58 but st.dataframe keeps it
         )
     else:
         st.info("No results files found. Run training scripts first.")
