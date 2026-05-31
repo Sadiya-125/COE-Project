@@ -100,17 +100,18 @@ def run_hpafl(config: HAPFLConfig) -> None:
     )
     budget_logger = PrivacyBudgetLogger(config.results_dir)
 
-    # ---- Create per-hospital data loaders and local models ----
+    # ---- Create per-hospital data loaders ----
     hospital_ids = HOSPITAL_IDS[: config.num_hospitals]
     train_loaders, val_loaders = {}, {}
-    local_models: Dict[str, torch.nn.Module] = {}
 
     for hosp_id in hospital_ids:
         tl, vl = create_dataloaders(hosp_id, config)
         train_loaders[hosp_id] = tl
         val_loaders[hosp_id] = vl
-        # Pre-fix BN→GN so DP optimizer is always created against GN parameters
-        local_models[hosp_id] = _make_dp_ready(get_model(config)).to(device)
+
+    # FedBN: persist each hospital's local GroupNorm parameters across rounds
+    # (GN layers are never sent to the server; this dict keeps them alive)
+    local_gn_states: Dict[str, dict] = {h: {} for h in hospital_ids}
 
     # ---- Federated learning rounds ----
     from clients.local_trainer import LocalTrainer
@@ -132,18 +133,40 @@ def run_hpafl(config: HAPFLConfig) -> None:
 
         # ---- Local training on each hospital ----
         for i, hosp_id in enumerate(hospital_ids):
-            # Distribute global params (non-BN only) to this hospital
-            set_non_bn(local_models[hosp_id], global_params)
+            # Create a fresh GN-fixed model every round to avoid Opacus hook
+            # contamination: make_private_with_epsilon adds persistent backward
+            # hooks that break ModuleValidator.validate() on the next call.
+            local_model = _make_dp_ready(get_model(config)).to(device)
+
+            # Load server's global params (non-GN layers only — FedBN)
+            set_non_bn(local_model, global_params)
+
+            # Restore this hospital's local GN parameters from the previous round
+            # (FedBN: GN layers are never aggregated, must persist locally)
+            if local_gn_states[hosp_id]:
+                state = local_model.state_dict()
+                for name, param in local_gn_states[hosp_id].items():
+                    state[name] = param.to(device)
+                local_model.load_state_dict(state, strict=True)
 
             trainer = LocalTrainer(config, hosp_id, device)
             metrics = trainer.train(
-                local_models[hosp_id],
+                local_model,
                 train_loaders[hosp_id],
                 val_loaders[hosp_id],
                 learning_rate=lr,
                 use_dp=True,
             )
-            fit_updates[i] = get_non_bn(local_models[hosp_id])
+
+            # Extract updated non-GN params for aggregation
+            fit_updates[i] = get_non_bn(local_model)
+
+            # Save updated local GN state for next round
+            local_gn_states[hosp_id] = {
+                name: param.detach().cpu()
+                for name, param in local_model.named_parameters()
+                if name in bn_names
+            }
             fit_metrics[hosp_id] = metrics
             num_samples[hosp_id] = metrics["num_samples"]
 
@@ -222,14 +245,13 @@ def run_hpafl(config: HAPFLConfig) -> None:
             best_params = [p.copy() for p in global_params]
 
     # ---- Save final model checkpoint ----
-    final_model = get_model(config)
+    final_model = _make_dp_ready(get_model(config))
     set_non_bn(final_model, best_params)
     ckpt = Path(config.checkpoint_dir) / "global_model_final.pt"
     torch.save(final_model.state_dict(), ckpt)
     logger.info("Global model checkpoint saved → %s", ckpt)
 
     # ---- Final evaluation on all hospital val sets ----
-    set_non_bn(final_model, best_params)
     final_model.to(device).eval()
 
     from torch.utils.data import ConcatDataset
