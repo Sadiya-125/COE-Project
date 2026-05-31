@@ -23,6 +23,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 warnings.filterwarnings("ignore", category=UserWarning, module="opacus")
 warnings.filterwarnings("ignore", category=UserWarning, module="torch")
 warnings.filterwarnings("ignore", category=RuntimeWarning, module="opacus")
+warnings.filterwarnings("ignore", message="Full backward hook is firing")
 
 import numpy as np
 import torch
@@ -71,8 +72,23 @@ def run_hpafl(config: HAPFLConfig) -> None:
             model = ModuleValidator.fix(model)
         return model
 
+    # Download pretrained weights ONCE and cache the GN-fixed state dict.
+    # Per-round fresh models are created without downloading (pretrained=False)
+    # and then loaded from this cache — avoids repeated network hits.
     global_model = _make_dp_ready(get_model(config))
+    _cached_gn_state = {k: v.cpu().clone() for k, v in global_model.state_dict().items()}
+    logger.info("Pretrained weights cached (GN-fixed). No further downloads per round.")
+
     bn_names = set(get_bn_layer_names(global_model))
+
+    def _fresh_model() -> torch.nn.Module:
+        """Return a fresh GN-fixed model loaded from the cached pretrained weights."""
+        import copy
+        no_dl_cfg = copy.copy(config)
+        no_dl_cfg.pretrained = False
+        m = _make_dp_ready(get_model(no_dl_cfg))
+        m.load_state_dict(_cached_gn_state)
+        return m.to(device)
 
     def get_non_bn(model):
         return [
@@ -133,10 +149,9 @@ def run_hpafl(config: HAPFLConfig) -> None:
 
         # ---- Local training on each hospital ----
         for i, hosp_id in enumerate(hospital_ids):
-            # Create a fresh GN-fixed model every round to avoid Opacus hook
-            # contamination: make_private_with_epsilon adds persistent backward
-            # hooks that break ModuleValidator.validate() on the next call.
-            local_model = _make_dp_ready(get_model(config)).to(device)
+            # Fresh GN-fixed model each round — avoids Opacus hook contamination
+            # and uses cached pretrained weights (no repeated network downloads).
+            local_model = _fresh_model()
 
             # Load server's global params (non-GN layers only — FedBN)
             set_non_bn(local_model, global_params)
@@ -245,7 +260,7 @@ def run_hpafl(config: HAPFLConfig) -> None:
             best_params = [p.copy() for p in global_params]
 
     # ---- Save final model checkpoint ----
-    final_model = _make_dp_ready(get_model(config))
+    final_model = _fresh_model()
     set_non_bn(final_model, best_params)
     ckpt = Path(config.checkpoint_dir) / "global_model_final.pt"
     torch.save(final_model.state_dict(), ckpt)
