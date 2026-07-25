@@ -61,18 +61,59 @@ class DatasetPartitioner:
 
         Raises:
             FileNotFoundError: If metadata CSV is not found.
+            ValueError: If CSV is malformed or lacks required columns.
         """
         csv_path = Path(self.config.data_root) / "HAM10000_metadata.csv"
         if not csv_path.exists():
-            raise FileNotFoundError(f"Metadata CSV not found: {csv_path}")
+            # Try common alternative paths
+            alt_path = Path(self.config.data_root).parent / "HAM10000_metadata.csv"
+            if alt_path.exists():
+                csv_path = alt_path
+                logger.info("Found metadata at alternative path: %s", csv_path)
+            else:
+                raise FileNotFoundError(
+                    f"Metadata CSV not found at {csv_path} or {alt_path}. "
+                    f"Please ensure data_root points to the HAM10000 dataset directory. "
+                    f"Kaggle dataset: /kaggle/input/skin-cancer-mnist-ham10000"
+                )
 
-        df = pd.read_csv(csv_path)
+        try:
+            df = pd.read_csv(csv_path)
+        except pd.errors.ParserError as e:
+            raise ValueError(
+                f"Failed to parse metadata CSV at {csv_path}: {str(e)}"
+            ) from e
+        except Exception as e:
+            raise RuntimeError(
+                f"Unexpected error reading {csv_path}: {str(e)}"
+            ) from e
+
+        # Validate required columns
+        if "dx" not in df.columns:
+            raise ValueError(
+                f"Metadata CSV must contain 'dx' column; found columns: {df.columns.tolist()}"
+            )
+
         df["class_code"] = df["dx"].map(DX_TO_CLASS)
+        unmapped = df["class_code"].isna().sum()
+        if unmapped > 0:
+            logger.warning(
+                "Found %d samples with unmapped dx codes. They will be excluded.",
+                unmapped
+            )
+
         df["label"] = df["class_code"].map(
             {name: idx for idx, name in enumerate(CLASS_NAMES)}
         )
         df = df.dropna(subset=["label"])
         df["label"] = df["label"].astype(int)
+
+        if len(df) == 0:
+            raise ValueError(
+                "No valid samples found after label encoding. "
+                "Check that metadata CSV contains valid dx codes."
+            )
+
         logger.info(
             "Loaded %d samples with %d classes from %s",
             len(df),

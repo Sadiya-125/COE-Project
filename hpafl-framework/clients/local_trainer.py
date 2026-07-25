@@ -86,6 +86,10 @@ class LocalTrainer:
         dp_trainer = DPTrainer(self.config)
         epsilon = 0.0
 
+        # Clear GPU cache before DP-SGD attachment to maximize available memory
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+
         if use_dp:
             try:
                 model, optimizer, train_loader = dp_trainer.attach(
@@ -170,6 +174,11 @@ class LocalTrainer:
 
             total_loss += loss.item()
             n_batches += 1
+
+            # Clear GPU cache after each batch to free memory for next iteration
+            # Critical for DP-SGD which has high per-sample gradient memory overhead
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
 
         return total_loss / max(n_batches, 1)
 

@@ -1,0 +1,38 @@
+{
+  "A": {
+    "total": 6651,
+    "class_distribution": {
+      "MEL": 501,
+      "NV": 4880,
+      "BCC": 168,
+      "AK": 172,
+      "BKL": 852,
+      "DF": 58,
+      "VASC": 20
+    }
+  },
+  "B": {
+    "total": 1731,
+    "class_distribution": {
+      "MEL": 157,
+      "NV": 1112,
+      "BCC": 130,
+      "AK": 127,
+      "BKL": 129,
+      "DF": 13,
+      "VASC": 63
+    }
+  },
+  "C": {
+    "total": 1633,
+    "class_distribution": {
+      "MEL": 455,
+      "NV": 713,
+      "BCC": 216,
+      "AK": 28,
+      "BKL": 118,
+      "DF": 44,
+      "VASC": 59
+    }
+  }
+}

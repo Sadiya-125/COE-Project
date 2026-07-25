@@ -91,17 +91,49 @@ class HAM10000FlowerClient(fl.client.NumPyClient):
 
         Args:
             parameters: List of numpy arrays (same order as get_parameters).
+
+        Raises:
+            ValueError: If parameter count or shapes don't match model structure.
+            TypeError: If parameters are not numpy arrays.
         """
+        if not isinstance(parameters, (list, tuple)):
+            raise TypeError(
+                f"parameters must be a list/tuple of numpy arrays; got {type(parameters)}"
+            )
+
         non_bn = self._non_bn_params()
         if len(parameters) != len(non_bn):
             raise ValueError(
                 f"Parameter count mismatch: expected {len(non_bn)}, "
-                f"got {len(parameters)}"
+                f"got {len(parameters)}. This usually means the global model "
+                f"architecture changed or there's a version mismatch."
             )
+
+        # Validate shapes before loading
+        for i, ((name, param), arr) in enumerate(zip(non_bn, parameters)):
+            if not isinstance(arr, np.ndarray):
+                raise TypeError(
+                    f"Parameter {i} ({name}) is not a numpy array; got {type(arr)}"
+                )
+            expected_shape = tuple(param.shape)
+            actual_shape = tuple(arr.shape)
+            if expected_shape != actual_shape:
+                raise ValueError(
+                    f"Shape mismatch for parameter {i} ({name}): "
+                    f"expected {expected_shape}, got {actual_shape}"
+                )
+
         state_dict = self.model.state_dict()
         for (name, _), arr in zip(non_bn, parameters):
-            state_dict[name] = torch.tensor(arr)
-        self.model.load_state_dict(state_dict, strict=True)
+            state_dict[name] = torch.tensor(arr, device=self.device)
+
+        try:
+            self.model.load_state_dict(state_dict, strict=True)
+        except RuntimeError as e:
+            raise RuntimeError(
+                f"Failed to load state dict for Hospital {self.hospital_id}: {str(e)}. "
+                f"This may indicate BatchNorm layers were incorrectly excluded."
+            ) from e
 
     def fit(
         self,
