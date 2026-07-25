@@ -44,6 +44,9 @@ class HAPFLConfig:
         learning_rate: Initial learning rate.
         weight_decay: L2 regularisation coefficient.
         focal_gamma: Focusing parameter for FocalLoss (0 = CrossEntropy).
+        focal_alpha: Class weighting factor for severe imbalance (2.0-5.0).
+        use_augmentation: Enable data augmentation for improved generalization.
+        augmentation_strength: Augmentation intensity ("low", "medium", "high").
         num_rounds: Total federated learning communication rounds.
         fraction_fit: Fraction of clients selected per round for training.
         fraction_evaluate: Fraction of clients selected per round for evaluation.
@@ -85,7 +88,10 @@ class HAPFLConfig:
     batch_size: int = 64        # comfortable on T4 16 GB; try 128 if headroom allows
     learning_rate: float = 1e-4
     weight_decay: float = 1e-5
-    focal_gamma: float = 2.0
+    focal_gamma: float = 2.0    # Focusing parameter for FocalLoss
+    focal_alpha: float = 2.0    # Class weighting for severe imbalance (try 3.0-5.0)
+    use_augmentation: bool = True  # Enable data augmentation
+    augmentation_strength: str = "high"  # Options: "low", "medium", "high"
     num_workers: int = 4        # Kaggle T4 ships with 4 CPU cores
 
     # ── Federated Learning ────────────────────────────────────────────────────

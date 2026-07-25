@@ -115,24 +115,72 @@ class HAM10000Dataset(Dataset):
     def _build_transform(self) -> transforms.Compose:
         """Build the torchvision transform pipeline for train or val split.
 
+        Supports configurable augmentation strength via config.augmentation_strength:
+        - "low": Minimal augmentation (flip, small rotation)
+        - "medium": Balanced augmentation (default)
+        - "high": Aggressive augmentation (all transforms with stronger parameters)
+
         Returns:
             Composed transform pipeline.
         """
         if self.split == "train":
-            return transforms.Compose(
-                [
-                    transforms.Resize((self.image_size, self.image_size)),
-                    transforms.RandomHorizontalFlip(p=0.5),
-                    transforms.RandomVerticalFlip(p=0.3),
-                    transforms.RandomRotation(degrees=15),
-                    transforms.ColorJitter(
-                        brightness=0.2, contrast=0.2, saturation=0.1, hue=0.05
-                    ),
-                    transforms.RandomAffine(degrees=0, translate=(0.1, 0.1)),
-                    transforms.ToTensor(),
-                    transforms.Normalize(mean=self._MEAN, std=self._STD),
-                ]
-            )
+            # Get augmentation strength and whether augmentation is enabled
+            use_aug = getattr(self.config, 'use_augmentation', True)
+            aug_strength = getattr(self.config, 'augmentation_strength', 'high')
+
+            if not use_aug:
+                # Minimal transforms only (normalize)
+                return transforms.Compose(
+                    [
+                        transforms.Resize((self.image_size, self.image_size)),
+                        transforms.ToTensor(),
+                        transforms.Normalize(mean=self._MEAN, std=self._STD),
+                    ]
+                )
+            elif aug_strength == "low":
+                # Minimal augmentation
+                return transforms.Compose(
+                    [
+                        transforms.Resize((self.image_size, self.image_size)),
+                        transforms.RandomHorizontalFlip(p=0.3),
+                        transforms.ToTensor(),
+                        transforms.Normalize(mean=self._MEAN, std=self._STD),
+                    ]
+                )
+            elif aug_strength == "medium":
+                # Balanced augmentation
+                return transforms.Compose(
+                    [
+                        transforms.Resize((self.image_size, self.image_size)),
+                        transforms.RandomHorizontalFlip(p=0.5),
+                        transforms.RandomVerticalFlip(p=0.3),
+                        transforms.RandomRotation(degrees=15),
+                        transforms.ColorJitter(
+                            brightness=0.2, contrast=0.2, saturation=0.1, hue=0.05
+                        ),
+                        transforms.RandomAffine(degrees=0, translate=(0.1, 0.1)),
+                        transforms.ToTensor(),
+                        transforms.Normalize(mean=self._MEAN, std=self._STD),
+                    ]
+                )
+            else:  # "high" or default
+                # Aggressive augmentation
+                return transforms.Compose(
+                    [
+                        transforms.Resize((self.image_size, self.image_size)),
+                        transforms.RandomHorizontalFlip(p=0.6),
+                        transforms.RandomVerticalFlip(p=0.4),
+                        transforms.RandomRotation(degrees=25),
+                        transforms.ColorJitter(
+                            brightness=0.3, contrast=0.3, saturation=0.2, hue=0.1
+                        ),
+                        transforms.RandomAffine(degrees=0, translate=(0.15, 0.15)),
+                        transforms.RandomPerspective(distortion_scale=0.2, p=0.2),
+                        transforms.GaussianBlur(kernel_size=3, sigma=(0.1, 2.0)),
+                        transforms.ToTensor(),
+                        transforms.Normalize(mean=self._MEAN, std=self._STD),
+                    ]
+                )
         else:
             return transforms.Compose(
                 [

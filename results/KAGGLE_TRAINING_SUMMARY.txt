@@ -1,0 +1,23 @@
+======================================================================
+HPAFL Training Summary - Kaggle T4 GPU
+======================================================================
+
+CONFIGURATION
+----------------------------------------------------------------------
+Rounds: 2
+Local Epochs: 1
+Batch Size: 64
+Model: efficientnet_b0
+Image Size: 224
+Num Hospitals: 3
+
+PRIVACY PARAMETERS
+----------------------------------------------------------------------
+Target Epsilon: 8.0
+Target Delta: 1e-05
+Max Grad Norm: 1.0
+Noise Multiplier: 1.1
+
+OUTPUT FILES
+----------------------------------------------------------------------
+  KAGGLE_TRAINING_SUMMARY.txt (0.00 MB)

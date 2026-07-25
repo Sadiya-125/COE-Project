@@ -73,6 +73,12 @@ class LocalTrainer:
         train_dataset = train_loader.dataset
         if hasattr(train_dataset, "class_weights"):
             alpha = train_dataset.class_weights.to(self.device)
+            # Apply focal_alpha scaling to increase class weighting
+            # focal_alpha > 1.0 amplifies the weight difference between rare and common classes
+            focal_alpha = getattr(self.config, 'focal_alpha', 2.0)
+            if focal_alpha != 1.0:
+                alpha = torch.pow(alpha, focal_alpha / 2.0)  # Raise weights to power to amplify
+                alpha = alpha / alpha.sum()  # Re-normalize
         else:
             alpha = None
         criterion = FocalLoss(gamma=self.config.focal_gamma, alpha=alpha)
